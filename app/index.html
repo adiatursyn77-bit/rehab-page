@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rehab — ИИ-тренажёр руки, запястья и пальцев</title>
+<style>
+:root{--bg:#04070d;--c:#19e6ff;--g:#2dff9a;--o:#ffb020;--glass:rgba(10,20,34,.8);--line:rgba(25,230,255,.3)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#0a1626,var(--bg) 70%);color:#d8f4ff;font-family:'Segoe UI',Roboto,Arial,sans-serif}
+canvas#gl,canvas#gm{position:fixed;inset:0;width:100%;height:100%}canvas#gm{z-index:4;pointer-events:none}
+.glass{background:var(--glass);border:1px solid var(--line);border-radius:14px}
+button{background:rgba(25,230,255,.12);color:var(--c);border:1px solid var(--c);border-radius:9px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:13px}
+button:hover{background:rgba(25,230,255,.3)}button.go{background:var(--g);color:#032;border-color:var(--g)}
+#top{position:fixed;left:16px;top:14px;z-index:6;display:flex;gap:14px;align-items:center;padding:8px 14px;width:calc(100% - 300px)}
+.logo{font-size:18px;font-weight:800;color:var(--c);white-space:nowrap}.logo span{color:#fff}
+#steps{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.chip{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);color:#7fb4c8}
+.chip.on{background:var(--c);color:#012;border-color:var(--c);font-weight:700}.chip.dn{color:var(--g);border-color:var(--g)}
+#cap{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:6;padding:12px 22px;text-align:center;width:min(640px,calc(100% - 330px))}
+#cap h2{font-size:20px;color:#fff}#cap p{font-size:13px;color:#9fd0e0;margin-top:4px}#st{font-size:12px;margin-top:4px;color:#ffd48a}#st.ok{color:#9dffd0}#cap button{margin-top:8px}
+#cam{position:fixed;right:16px;top:14px;width:250px;height:188px;z-index:6;overflow:hidden;display:none;padding:0}
+#cam canvas{object-fit:cover;width:100%;height:100%;transform:scaleX(-1);display:block}
+#hud{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;gap:18px;align-items:center;padding:10px 20px;z-index:6}
+#axs{display:flex;gap:14px}.ax{font:12px Consolas,monospace}.ax .t{display:flex;justify-content:space-between;color:#7fb4c8;margin-bottom:3px;gap:6px}
+.bar{position:relative;height:8px;background:rgba(255,255,255,.1);border-radius:4px}.bar i{position:absolute;top:-2px;width:3px;height:12px;border-radius:2px}
+.cur{background:var(--c);box-shadow:0 0 8px var(--c)}.tg{background:var(--o)}.ax .d{text-align:right;margin-top:3px}
+#ring{position:relative;width:78px;height:78px}#ring svg{transform:rotate(-90deg)}
+#ring div{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font:12px Consolas,monospace}
+#fb{position:fixed;right:16px;top:90px;width:340px;max-height:calc(100% - 120px);overflow:auto;z-index:7;padding:16px;display:none}
+#fb h3{color:var(--c);margin-bottom:8px}.fr{padding:8px;border-radius:8px;margin:6px 0;background:rgba(0,0,0,.3);font-size:13px;border-left:3px solid var(--o)}
+.fr.ok{border-color:var(--g)}.fr small{color:#9fd0e0}#fb p{margin:10px 0;font-size:13px}#fb button{margin:3px 3px 0 0}
+#menu{position:fixed;inset:0;z-index:20;background:rgba(3,7,13,.92);display:flex;align-items:center;justify-content:center;overflow:auto}
+#menu .in{width:min(860px,94%);padding:26px;margin:20px;position:relative}
+#menu h1{font-size:30px;color:var(--c)}#menu h1 span{color:#fff}#menu .sb{color:#8fc4d6;margin:4px 0 14px;font-size:14px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.cards.two{grid-template-columns:1fr 1fr}
+.card{padding:12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px}.card:hover{background:rgba(25,230,255,.14)}.card small{color:#7fb4c8;display:block;margin-top:2px}.card.dn{border-color:var(--g)}
+.card.big{text-align:center;padding:30px 10px;font-size:20px}.card.big small{font-size:13px}
+details{margin-top:10px;font-size:13px;color:#9cc7d6}details label{display:block;margin:5px 0;cursor:pointer}summary{cursor:pointer;color:var(--c)}
+#mclose{position:absolute;right:16px;top:12px;display:none}
+#banner{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:30;text-align:center;padding:28px 50px;border-radius:18px;border:2px solid var(--g);background:rgba(4,30,22,.92);box-shadow:0 0 60px rgba(45,255,154,.5);transition:.45s cubic-bezier(.2,1.4,.4,1)}
+#banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}#banner h1{font-size:28px;color:var(--g)}#banner p{margin-top:8px;color:#bfffe0}
+#an{position:fixed;inset:0;z-index:25;background:rgba(3,7,13,.96);overflow:auto;display:none}#an .in{width:min(900px,94%);margin:20px auto;padding:22px}
+#an table{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}#an td,#an th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}#an h3{color:var(--c);margin:14px 0 6px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.kpi div{padding:10px;border:1px solid var(--line);border-radius:10px;text-align:center;font-size:12px}.kpi b{display:block;font-size:24px;color:var(--g)}
+#an canvas{width:100%;height:150px;background:rgba(0,0,0,.25);border-radius:10px}.span2{grid-column:1/-1}
+@media(max-width:700px){.kpi{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.cards{grid-template-columns:1fr 1fr}#top{width:calc(100% - 32px)}}
+@media(max-width:700px){#top{width:calc(100% - 20px);left:10px;top:8px;padding:6px 10px;gap:8px}.logo{font-size:14px}#steps{display:none}
+#cap{top:58px;width:calc(100% - 20px);padding:8px 12px}#cap h2{font-size:16px}#cap p{font-size:12px}
+#cam{width:112px;height:84px;right:8px;top:auto;bottom:96px}
+#hud{width:calc(100% - 16px);bottom:8px;padding:6px 8px;gap:6px}#axs{flex:1;gap:5px}.ax{width:auto!important;flex:1;font-size:9px}#ring,#ring svg{width:52px;height:52px}#ring div{font-size:8px}
+#fb{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:48%}#menu .in{padding:16px;margin:10px}#menu h1{font-size:24px}.card.big{padding:18px 8px;font-size:17px}}
+</style></head><body>
+<canvas id="gl"></canvas><canvas id="gm"></canvas><video id="video" playsinline style="display:none"></video>
+<div id="top" class="glass"><div class="logo"><span>Rehab</span></div><button id="menuBtn">☰ Меню</button><button id="anBtn">📊 Аналитика</button><div id="steps"></div></div>
+<div id="cap" class="glass"><h2 id="capT"></h2><p id="capP"></p><div id="st"></div><button id="goBtn" style="display:none"></button></div>
+<div id="cam" class="glass"><canvas id="ov" width="640" height="480"></canvas></div>
+<div id="hud" class="glass"><div id="axs"></div><div id="ring"><svg width="78" height="78"><circle cx="39" cy="39" r="32" stroke="rgba(255,255,255,.1)" stroke-width="7" fill="none"/><circle id="arc" cx="39" cy="39" r="32" stroke="#19e6ff" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201"/></svg><div id="hold"></div></div></div>
+<div id="fb" class="glass"></div>
+<div id="banner"><h1>✔ Упражнение выполнено успешно!</h1><p id="bsub"></p></div>
+<div id="menu"><div class="in glass"><button id="mclose">✕ Закрыть</button>
+<h1><span>Rehab</span></h1>
+<div id="m1"><div class="sb">Что будем тренировать?</div><div class="cards two"><div class="card big" data-m="w">✋ Запястье<small>Pitch · Yaw · Roll</small></div><div class="card big" data-m="f">🖐 Пальцы<small>сгибание, жесты, пианино</small></div><div class="card big" data-m="e">💪 Рука<small>локоть и плечо · 3 упражнения</small></div><div class="card big" data-m="c">🎯 Координация<small>рука + запястье + пальцы · 5 упражнений</small></div><div class="card big span2" data-m="s">😊 Улыбка<small>3 игры сразу, без разбора — улыбнись или удержись</small></div><div class="card big span2" id="anCard">📊 Аналитика восстановления<small>прогресс, диапазон движений, автоподбор сложности</small></div></div></div>
+<div id="m2"><div class="sb">Какая рука работает?</div><div class="cards two"><div class="card big" data-h="R"> 🫲  Правая</div><div class="card big" data-h="L"> 🫱 Левая</div></div><button id="back1">← Назад</button></div>
+<div id="m3"><div class="sb" id="m3t"></div><div class="sb" style="margin-top:-8px">Показ → Повтор → Разбор ИИ → Игра-практика</div>
+<button class="go" id="startBtn">▶ Начать курс с упражнения 1</button><div class="cards" id="cards"></div>
+<button id="chg">← Режим</button> <button id="chh">⇄ Рука</button>
+<details><summary>⚙ Настройки и калибровка</summary>
+<label><input type="checkbox" id="ip"> Инвертировать Pitch</label><label><input type="checkbox" id="iy"> Инвертировать Yaw</label><label><input type="checkbox" id="ir"> Инвертировать Roll</label>
+<label><input type="checkbox" id="swap"> Поменять местами левая/правая (если рука определяется наоборот)</label><label><input type="checkbox" id="man"> Ручной режим (ползунки вместо камеры)</label>
+<div id="manual" style="display:none">Pitch <input type="range" id="mp" min="-70" max="70" value="0"> Yaw <input type="range" id="my" min="-40" max="40" value="0"> Roll <input type="range" id="mr" min="-85" max="85" value="0"><br>Пальцы: <input type="range" id="mf0" max="100" value="0"><input type="range" id="mf1" max="100" value="0"><input type="range" id="mf2" max="100" value="0"><input type="range" id="mf3" max="100" value="0"><input type="range" id="mf4" max="100" value="0"></div>
+<button id="calib" style="margin-top:6px">⌖ Обнулить углы запястья (клавиша C)</button></details></div></div></div>
+
+<div id="an"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id),D2R=Math.PI/180,R2D=180/Math.PI,V3=THREE.Vector3,LIM=[70,40,85],cl=(v,l,h)=>Math.max(l,Math.min(h,v)),rnd=(a,b)=>a+Math.random()*(b-a);
+const FIN=[['Деталь 1: основание',[30,15,-30]],['Деталь 2: корпус',[-25,25,30]],['Деталь 3: голова',[20,-30,45]],['Деталь 4: левая рука',[-30,-20,-40]],['Деталь 5: правая рука',[35,-10,25]],['Деталь 6: антенна',[-20,30,-35]]];
+const EW=[
+{t:'Сгибание кисти',s:'Pitch · вверх/вниз',tol:14,steps:[['Сгибание',[30,0,0]],['Разгибание',[-20,0,0]]],g:'🚀 Ракета',gd:'Двигайте кисть вверх-вниз — ловите звёзды'},
+{t:'Отведение влево/вправо',s:'Yaw · в плоскости ладони',tol:14,steps:[['Влево',[0,28,0]],['Вправо',[0,-28,0]]],g:'🐕 Собака и кости',gd:'Отводите кисть влево-вправо — собака ловит кости'},
+{t:'Супинация и ротация ладони',s:'Roll · вращение вокруг предплечья',tol:18,steps:[['Поворот в одну сторону',[0,0,35]],['Поворот в другую',[0,0,-35]]],g:'🔐 Сейф',gd:'Поворачивайте ладонь: стрелка в зелёный сектор на 1 с'},
+{t:'Комплекс 3 DoF',s:'все оси сразу',tol:24,steps:[['Поза A',[30,20,0]],['Поза B',[-25,-20,35]],['Поза C',[20,-15,-40]]],g:'🛸 Космический полёт',gd:'Наклоняйте кисть — летите тарелкой: ловите кольца, облетайте кометы'},
+{t:'Финал: сборка робота',s:'точность ±14° и удержание 2 с',tol:14,steps:FIN,final:true}];
+const EF=[
+{t:'Кулак и раскрытие',s:'сгибание всех пальцев',tol:26,steps:[['Кулак',[1,1,1,1,1]],['Раскрыть ладонь: пальцы выпрямить и растопырить',[0,0,0,0,0]]],g:'🌸 Цветок',gd:'Раскрывайте и сжимайте ладонь — цветок расцветает'},
+{t:'Волна пальцев',s:'сгибаем по одному: от мизинца к указательному',tol:28,steps:[['Мизинец',[0,0,0,0,1]],['+ Безымянный',[0,0,0,1,1]],['+ Средний',[0,0,1,1,1]],['+ Указательный',[0,1,1,1,1]]],g:'🎹 Пианино',gd:'Ноты падают — сгибайте нужный палец, когда нота у линии'},
+{t:'Жесты',s:'координация пальцев',tol:28,steps:[['Класс',[0,1,1,1,1]],['Победа',[1,0,0,1,1]],['Коза',[1,0,1,1,0]],['Пистолет: большой и указательный вверх',[0,0,1,1,1]]],g:'👾 Охота на монстров',gd:'Покажи жест за 5 секунд — монстр взорвётся! Серия подряд = комбо'}];
+const EE=[
+{t:'Локоть: сгибание до 90°',s:'локоть прижат к телу · предплечье видно камере',tol:16,k:'p',m:[0],steps:[['Согните руку в локте до 90°',[90,0]],['Разогните руку',[10,0]]],g:'⭐ Достань звёзды',gd:'Рука двигает курсор: локоть — вправо-влево, плечо — вверх-вниз. Дотянись до звезды и держи 1 с',gl:5},
+{t:'Плечо: отведение до 90°',s:'прямая рука в сторону',tol:18,k:'p',m:[1],steps:[['Поднимите руку в сторону до 90°',[0,90]],['Опустите руку',[0,8]]],g:'🔴 Лазерный лабиринт',gd:'Проведи руку по коридору, не касаясь лазерных стен. Касание откатывает назад',gl:3},
+{t:'Плечо: отведение назад',s:'встаньте боком к камере · прямая рука назад',tol:16,k:'p',m:[1],steps:[['Встаньте боком к камере. Отведите прямую руку назад до 25°',[0,25]],['Отведите ещё дальше, до 45°',[0,45]],['Верните руку вдоль тела',[0,8]]],g:'🦪 Жемчуг',gd:'Собирайте жемчужины строго по номерам 1 → 2 → 3, чтобы открыть сундук',gl:3}];
+const XM={el:{n:'ЛОКОТЬ °',get:()=>sp[0],off:75,l:75,tm:18},sh:{n:'ПЛЕЧО °',get:()=>sp[1],off:75,l:75,tm:20},wp:{n:'PITCH °',get:()=>sm[0],off:0,l:70,tm:15},wy:{n:'YAW °',get:()=>sm[1],off:0,l:40,tm:14},wr:{n:'ROLL °',get:()=>sm[2],off:0,l:85,tm:20}};
+const EC=[
+{t:'Достань и схвати',s:'рука тянется, пальцы хватают',tol:18,k:'x',steps:[['Вытяните руку и раскройте ладонь',{el:10,f:[0,0,0,0,0]}],['Согните локоть и сожмите кулак (схват)',{el:90,f:[1,1,1,1,1]}]],g:'🔮 Собери сферы',gd:'Рука ведёт курсор, кулак хватает светящиеся сферы. Дальше и быстрее с каждым уровнем',gl:6},
+{t:'Подними и перенеси',s:'плечо + хват и отпускание',tol:18,k:'x',steps:[['Поднимите руку и сожмите кулак',{sh:80,f:[1,1,1,1,1]}],['Опустите руку и раскройте ладонь',{sh:15,f:[0,0,0,0,0]}]],g:'🌊 Спасение океана',gd:'Хватайте кулаком звёзды и мусор, несите в корзины и разжимайте ладонь. Время 45 с',gl:5},
+{t:'Кисть влево/вправо + ускорение',s:'запястье Yaw и пальцы',tol:18,k:'x',np:1,steps:[['Кисть влево, пальцы сжаты',{wy:-22,f:[1,1,1,1,1]}],['Кисть вправо, ладонь открыта',{wy:22,f:[0,0,0,0,0]}]],g:'🚀 Космический пилот',gd:'Кисть ←→ и вверх-вниз ведёт корабль, кулак — ускорение. Пролетайте кольца, обходите кометы',gl:6},
+{t:'Поворот кисти + захват',s:'запястье Roll и пальцы',tol:18,k:'x',np:1,steps:[['Поверните кисть в одну сторону и сожмите пальцы',{wr:40,f:[1,1,1,1,1]}],['Поверните в другую сторону и раскройте ладонь',{wr:-40,f:[0,0,0,0,0]}]],g:'🧩 Мастер форм',gd:'Сожмите кулак — взять фигуру, поверните кисть под угол отверстия, разожмите — вставить',gl:4},
+{t:'Кисть вверх/вниз + полив',s:'запястье Pitch и пальцы',tol:18,k:'x',np:1,steps:[['Кисть вниз и сожмите пальцы (полив)',{wp:-20,f:[1,1,1,1,1]}],['Кисть вверх и разожмите пальцы',{wp:25,f:[0,0,0,0,0]}]],g:'🌻 Волшебный сад',gd:'Без таймера: наведи лейку кистью ←→, сожми кулак — полив. Вырасти все растения',gl:4}];
+const ESM=[
+{t:'Улыбнись или нет',s:'быстрая реакция лица',k:'s',g:'😄 Улыбнись / не улыбайся',gd:'Выполняйте команду: улыбнуться или удержаться от смеха',gl:8},
+{t:'Улыбка-птица',s:'улыбка управляет полётом',k:'s',g:'🐤 Улыбка-птица',gd:'Улыбайтесь — птица летит вверх, расслабьтесь — вниз. Пролетайте в просветы',gl:6},
+{t:'Надуй шарик',s:'удерживайте улыбку',k:'s',g:'🎈 Улыбка-шарик',gd:'Улыбайтесь, чтобы надуть шарик до взрыва',gl:5}];
+const FN=['большой','указательный','средний','безымянный','мизинец'];
+const sat=(v,i)=>i?(v<35?0:v>65?100:(v-35)*100/30):(v<25?0:v>50?100:(v-25)*4);
+let FR=0,mode='',cat='',gid='',NP=false,TK=1,rawS=.4,faceSeen=0,rawP=[0,0],poseSeen=0,sp=[0,0],mn=[0,0,0,0,0],mxx=[0,0,0,0,0],hand='',cur=0,step=0,phase='home',hold=0,lost=0,devSum=0,stepT=0,lock=0,errE=[0,0,0,0,0],stats=[],results={w:[],f:[],e:[],s:[],c:[],g:[]},demoT=0,lastDemoIdx=-1,HOLD=2,tgtDeg=[0,0,0];
+const LIST={w:EW,f:EF,e:EE,s:ESM,c:EC},E=()=>LIST[cat],RS=()=>results[cat];
+const CN={w:'✋ Запястье',f:'🖐 Пальцы',e:'💪 Рука: локоть и плечо',s:'😊 Улыбка',c:'🎯 Координация'},LK='rehab_log';
+const getLog=()=>{try{return JSON.parse(localStorage.getItem(LK)||'[]')}catch(e){return[]}},putLog=a=>{try{localStorage.setItem(LK,JSON.stringify(a.slice(-400)))}catch(e){}};
+const addLog=o=>{const a=getLog();a.push({t:Date.now(),c:cat,i:cur,id:cat+cur,e:E()[cur].t,h:hand,...o});putLog(a)};
+const logRes=avg=>addLog({k:'ex',s:Math.round(avg),n:stats.length,tm:+stats.reduce((q,x)=>q+x.t,0).toFixed(1),rom:Math.round(Math.max(0,...mn.map((m,i)=>mxx[i]-m)))});
+const logPrac=()=>addLog({k:'pr',s:G.s,goal:G.goal,tm:Math.round(G.time)});
+const tolK=()=>{const a=getLog().filter(x=>x.k==='ex'&&x.id===gid&&x.h===hand).slice(-3);if(a.length<3)return 1;const m=a.reduce((q,x)=>q+x.s,0)/3;return m>=88?.85:m<60?1.2:1};
+const avg_=l=>l.length?l.reduce((q,x)=>q+x.s,0)/l.length:0;
+function chart(id,lb,v,col,mx){const c=$(id),w=c.width=c.clientWidth||600,h=c.height=150,g=c.getContext('2d');g.fillStyle='#7fb4c8';g.font='11px Segoe UI';
+ if(!v.length){g.fillText('Пока нет данных — пройдите упражнение',20,75);return}
+ const m=mx||Math.max(...v,1),X=i=>40+(w-60)*(v.length>1?i/(v.length-1):.5),Y=q=>h-24-(h-44)*q/m;
+ g.strokeStyle='rgba(255,255,255,.12)';[0,.5,1].forEach(k=>{g.beginPath();g.moveTo(36,Y(m*k));g.lineTo(w-10,Y(m*k));g.stroke();g.fillText((m*k).toFixed(0),4,Y(m*k)+4)});
+ g.strokeStyle=col;g.lineWidth=3;g.beginPath();v.forEach((q,i)=>i?g.lineTo(X(i),Y(q)):g.moveTo(X(i),Y(q)));g.stroke();
+ v.forEach((q,i)=>{g.fillStyle=col;g.beginPath();g.arc(X(i),Y(q),4,0,7);g.fill();g.fillStyle='#7fb4c8';g.fillText(lb[i],X(i)-14,h-6)})}
+const CK='rehab_course',getC=()=>{try{return +localStorage.getItem(CK)||0}catch(e){return 0}},putC=v=>{try{v?localStorage.setItem(CK,v):localStorage.removeItem(CK)}catch(e){} };
+const dlf=(n,t,m)=>{const u=URL.createObjectURL(new Blob([t],{type:m})),a=document.createElement('a');a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)};
+function romRows(ex){const g={};ex.forEach(x=>(g[x.id]=g[x.id]||[]).push(x));return Object.values(g).map(l=>({e:l[0].e,n:l.length,a:l[0].rom||0,b:l[l.length-1].rom||0,best:Math.max(...l.map(x=>x.rom||0)),sa:l[0].s,sb:l[l.length-1].s}))}
+function courseHtml(ex,pr){const st=getC();if(!st)return '<p style="font-size:13px">Курс: 3 недели × 5 занятий по 25 минут (как в клиническом протоколе). <button id="cst" class="go">▶ Начать курс</button></p>';
+ const wk=[new Set(),new Set(),new Set()];ex.concat(pr).forEach(x=>{if(x.t<st)return;const d=Math.floor((x.t-st)/864e5),w=Math.floor(d/7);if(w<3)wk[w].add(d)});
+ const now=Math.floor((Date.now()-st)/864e5),cw=Math.min(2,Math.floor(now/7)),done=wk.reduce((q,x)=>q+Math.min(5,x.size),0);
+ return `<p style="font-size:13px">Старт: ${new Date(st).toLocaleDateString('ru-RU')} · день ${now+1} из 21 · выполнено занятий: <b>${done}/15</b></p>`+wk.map((x,i)=>`<div style="margin:4px 0;font-size:13px">${i===cw?'▶ ':''}Неделя ${i+1}: ${[0,1,2,3,4].map(k=>k<x.size?'🟩':'⬜').join('')} ${Math.min(5,x.size)}/5</div>`).join('')+`<div class="bar" style="margin:8px 0"><div style="height:8px;border-radius:4px;background:var(--g);width:${done/15*100}%"></div></div><button id="cre">↺ Сбросить курс</button>`}
+function csvAll(){const a=getLog();return '﻿дата;режим;упражнение;рука;тип;точность%;повторений;время_с;диапазон;игра_очки;цель\n'+a.map(x=>[new Date(x.t).toLocaleString('ru-RU'),CN[x.c]||x.c,x.e,x.h==='L'?'левая':'правая',x.k==='ex'?'разбор':'игра',x.s,x.n||'',x.tm||'',x.rom||'',x.k==='pr'?x.s:'',x.goal||''].join(';')).join('\n')}
+function reportDoc(){const a=getLog(),ex=a.filter(x=>x.k==='ex'),rr=romRows(ex),av=avg_(ex),mins=Math.round(a.reduce((q,x)=>q+(x.tm||0),0)/60),st=getC();
+ return `<!doctype html><meta charset="utf-8"><title>Отчёт Rehab</title><style>body{font:14px Arial;margin:30px;color:#111}table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid #999;padding:5px 8px;text-align:left}h1{font-size:22px}h2{font-size:16px;margin-top:20px}</style>
+ <h1>Отчёт о тренировках — Rehab</h1><p>Дата отчёта: ${new Date().toLocaleDateString('ru-RU')}${st?' · курс с '+new Date(st).toLocaleDateString('ru-RU'):''}</p>
+ <p>Разборов: <b>${ex.length}</b> · средняя точность: <b>${av.toFixed(0)}%</b> · общее время: <b>${mins} мин</b> · правая рука: ${ex.filter(x=>x.h==='R').length}, левая: ${ex.filter(x=>x.h==='L').length}</p>
+ <h2>Диапазон движений: начало и сейчас (° для суставов, % для пальцев)</h2><table><tr><th>Упражнение</th><th>Попыток</th><th>ROM первая</th><th>ROM последняя</th><th>Лучший</th><th>Изменение</th><th>Точность первая → последняя</th></tr>${rr.map(r=>`<tr><td>${r.e}</td><td>${r.n}</td><td>${r.a}</td><td>${r.b}</td><td>${r.best}</td><td>${r.b-r.a>0?'+':''}${r.b-r.a}</td><td>${r.sa}% → ${r.sb}%</td></tr>`).join('')||'<tr><td colspan="7">Нет данных</td></tr>'}</table>
+ <h2>Последние записи</h2><table><tr><th>Дата</th><th>Упражнение</th><th>Рука</th><th>Результат</th></tr>${a.slice(-30).reverse().map(x=>`<tr><td>${new Date(x.t).toLocaleString('ru-RU')}</td><td>${x.e}${x.k==='pr'?' (игра)':''}</td><td>${x.h==='L'?'лев.':'прав.'}</td><td>${x.k==='ex'?x.s+'%':'★ '+x.s+'/'+x.goal}</td></tr>`).join('')}</table>
+ <p style="font-size:12px;color:#555">Измерения выполнены камерой (MediaPipe) и не заменяют медицинское обследование. Сила хвата камерой не измеряется — указана степень сжатия кулака.</p><script>setTimeout(()=>print(),300)<\/script>`}
+function openAn(){const a=getLog(),ex=a.filter(x=>x.k==='ex'),pr=a.filter(x=>x.k==='pr'),av=avg_,days={};
+ ex.forEach(x=>{const d=new Date(x.t).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});(days[d]=days[d]||[]).push(x)});
+ const dk=Object.keys(days).slice(-14),ds=dk.map(d=>av(days[d])),dr=dk.map(d=>days[d].reduce((q,x)=>q+(x.rom||0),0)/days[d].length),reps=ex.reduce((q,x)=>q+x.n,0)+pr.reduce((q,x)=>q+x.s,0);
+ const hr=h=>{const l=ex.filter(x=>x.h===h);return l.length?av(l).toFixed(0)+'% ('+l.length+')':'—'};
+ const byC=Object.keys(CN).map(c=>{const l=ex.filter(x=>x.c===c);return `<tr><td>${CN[c]}</td><td>${l.length}</td><td>${l.length?av(l).toFixed(0)+'%':'—'}</td></tr>`}).join('');
+ const ids=[...new Set(ex.map(x=>x.id))].map(id=>{const l=ex.filter(x=>x.id===id),la=l.slice(-3),m=av(la),lv=la.length<3?'норма (мало данных)':m>=88?'↑ усложнено':m<60?'↓ облегчено':'норма';return `<tr><td>${l[0].e}</td><td>${l.length}</td><td>${av(l).toFixed(0)}%</td><td>${lv}</td></tr>`}).join('');
+ const rows=a.slice(-10).reverse().map(x=>`<tr><td>${new Date(x.t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td><td>${x.e}${x.k==='pr'?' · игра':''}</td><td>${x.h==='L'?'лев.':'прав.'}</td><td>${x.k==='ex'?x.s+'%':'★ '+x.s+'/'+x.goal}</td></tr>`).join('');
+ $('an').innerHTML=`<div class="in glass"><button id="anx" style="float:right">✕ Закрыть</button><h1 style="color:var(--c)">📊 Аналитика <span style="color:#fff">восстановления</span></h1>
+ <div class="kpi"><div><b>${ex.length}</b>разборов</div><div><b>${av(ex).toFixed(0)}%</b>средняя точность</div><div><b>${reps}</b>повторений и баллов</div><div><b>${ex.length?Math.max(...ex.map(x=>x.s)):0}%</b>лучший результат</div></div>
+ <h3>Точность по дням, %</h3><canvas id="c1"></canvas><h3>Диапазон движений по дням (° / %)</h3><canvas id="c2"></canvas>
+ <h3>📅 Курс реабилитации</h3>${courseHtml(ex,pr)}
+ <h3>📈 Диапазон движений: до и после</h3><table><tr><th>Упражнение</th><th>Первая</th><th>Сейчас</th><th>Лучший</th><th>Δ</th></tr>${romRows(ex).map(r=>`<tr><td>${r.e}</td><td>${r.a}</td><td>${r.b}</td><td>${r.best}</td><td style="color:${r.b-r.a>=0?'#2dff9a':'#ff8fa3'}">${r.b-r.a>0?'+':''}${r.b-r.a}</td></tr>`).join('')||'<tr><td colspan="5">Нет данных</td></tr>'}</table><small style="color:#7fb4c8">Первая попытка против последней, ° для суставов и % для пальцев.</small>
+ <h3>Правая и левая рука</h3><p style="font-size:14px">Правая: <b>${hr('R')}</b> &nbsp;·&nbsp; Левая: <b>${hr('L')}</b></p>
+ <h3>По режимам</h3><table><tr><th>Режим</th><th>Попыток</th><th>Точность</th></tr>${byC}</table>
+ <h3>Автоподбор сложности</h3><table><tr><th>Упражнение</th><th>Попыток</th><th>Точность</th><th>Допуск</th></tr>${ids||'<tr><td colspan="4">Нет данных</td></tr>'}</table><small style="color:#7fb4c8">Последние 3 попытки ≥88% — допуск строже, &lt;60% — мягче.</small>
+ <h3>Последние записи</h3><table>${rows||'<tr><td>Нет данных</td></tr>'}</table><div style="margin-top:14px"><button id="ape" class="go">📄 Отчёт для врача (PDF)</button> <button id="acs">⬇ CSV</button> <button id="anc">🗑 Очистить историю</button></div></div>`;
+ $('an').style.display='block';chart('c1',dk,ds,'#2dff9a',100);chart('c2',dk,dr,'#19e6ff');
+ $('anx').onclick=()=>$('an').style.display='none';if($('cst'))$('cst').onclick=()=>{putC(Date.now());openAn()};if($('cre'))$('cre').onclick=()=>{if(confirm('Сбросить курс?')){putC(0);openAn()}};
+ $('acs').onclick=()=>dlf('rehab-report.csv',csvAll(),'text/csv');$('ape').onclick=()=>{const w=window.open('','_blank');if(w){w.document.write(reportDoc());w.document.close()}else dlf('rehab-report.html',reportDoc(),'text/html')};$('anc').onclick=()=>{if(confirm('Очистить всю историю?')){putLog([]);openAn()}}}
+
+/* ---------- Three.js (запястье) ---------- */
+const canvas=$('gl'),gm=$('gm'),gx=gm.getContext('2d');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,.1,100);camera.position.set(0,.8,9.5);
+scene.add(new THREE.HemisphereLight(0xaee8ff,0x101830,.95));const dl=new THREE.DirectionalLight(0xffffff,1.1);dl.position.set(3,6,6);scene.add(dl);
+const pl=new THREE.PointLight(0x19e6ff,1.5,18);pl.position.set(-4,1,4);scene.add(pl);
+const grid=new THREE.GridHelper(30,40,0x19e6ff,0x0d3a4d);grid.position.y=-3.6;grid.material.transparent=true;grid.material.opacity=.3;scene.add(grid);
+const M=(c,m=.8,r=.3,e)=>new THREE.MeshStandardMaterial({color:c,metalness:m,roughness:r,emissive:e||0,emissiveIntensity:e?1.2:0});
+const metal=M(0xc9d6e2),dark=M(0x1b2736,.7,.4),glow=M(0x19e6ff,.2,.5,0x19e6ff),handMat=M(0xdce9f5,.7,.25);
+const ghostMat=new THREE.MeshBasicMaterial({color:0xffb020,transparent:true,opacity:.26,depthWrite:false}),ghostLine=new THREE.LineBasicMaterial({color:0xffb020});
+function mesh(g,m,x=0,y=0,z=0,p){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);p&&p.add(o);return o}
+function buildHand(mat,ghost){const h=new THREE.Group(),ms=[],add=(g,m,x,y,z,p)=>{const o=mesh(g,m,x,y,z,p||h);ms.push(o);return o};
+ add(new THREE.CylinderGeometry(.62,.55,.35,24),ghost?mat:dark,0,.18,0);add(new THREE.BoxGeometry(1.7,1.6,.55),mat,0,1,0);
+ if(!ghost)add(new THREE.BoxGeometry(1,.9,.06),glow,0,1,.31);
+ [[-.62,.72],[-.21,.95],[.2,1.05],[.61,.92]].forEach(([x,L])=>{const s=L/3;let y=1.8;for(let k=0;k<3;k++){add(new THREE.BoxGeometry(.32,s,.3),mat,x,y+s/2,0);y+=s;if(!ghost)add(new THREE.SphereGeometry(.16,10,10),dark,x,y-s+.02,0)}});
+ const th=new THREE.Group();th.position.set(.95,.55,0);th.rotation.z=-.75;h.add(th);for(let k=0;k<2;k++)add(new THREE.BoxGeometry(.34,.5,.32),mat,0,.3+k*.52,0,th);
+ if(ghost)ms.forEach(m=>m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),ghostLine)));return h}
+const rig=new THREE.Group();rig.position.y=-.3;scene.add(rig);
+mesh(new THREE.CylinderGeometry(.78,.98,3.2,32),metal,0,-2.1,0,rig);for(let i=0;i<4;i++)mesh(new THREE.TorusGeometry(.85+i*.04,.035,8,40),glow,0,-3.2+i*.7,0,rig).rotation.x=Math.PI/2;
+mesh(new THREE.CylinderGeometry(.68,.78,.3,32),dark,0,-.35,0,rig);mesh(new THREE.SphereGeometry(.55,24,24),metal,0,0,0,rig);
+mesh(new THREE.TorusGeometry(1.35,.03,8,64),new THREE.MeshBasicMaterial({color:0xff4d6d}),0,0,0,rig).rotation.y=Math.PI/2;
+mesh(new THREE.TorusGeometry(1.5,.03,8,64),new THREE.MeshBasicMaterial({color:0x2dff9a}),0,0,0,rig);
+mesh(new THREE.TorusGeometry(1.65,.03,8,64),new THREE.MeshBasicMaterial({color:0x19e6ff}),0,0,0,rig).rotation.x=Math.PI/2;
+const wrist=new THREE.Group();rig.add(wrist);wrist.add(buildHand(handMat,false));
+const ghost=new THREE.Group();rig.add(ghost);const gh=buildHand(ghostMat,true);gh.scale.setScalar(1.05);ghost.add(gh);
+const bot=new THREE.Group();bot.position.set(4.3,-2.4,0);bot.visible=false;scene.add(bot);const parts=[];
+function part(y,fn){const g=new THREE.Group();g.position.y=y;g.userData.y=y;g.visible=false;fn(g);bot.add(g);parts.push(g)}
+part(0,g=>mesh(new THREE.BoxGeometry(2.2,.4,1.6),dark,0,0,0,g));
+part(1.1,g=>{mesh(new THREE.BoxGeometry(1.5,1.6,1),metal,0,0,0,g);mesh(new THREE.BoxGeometry(.8,.5,.06),glow,0,.1,.52,g)});
+part(2.5,g=>{mesh(new THREE.BoxGeometry(1.1,.9,.9),metal,0,0,0,g);mesh(new THREE.SphereGeometry(.15,12,12),glow,-.25,.05,.46,g);mesh(new THREE.SphereGeometry(.15,12,12),glow,.25,.05,.46,g)});
+part(1.2,g=>mesh(new THREE.CylinderGeometry(.18,.18,1.5,12),dark,-1.05,0,0,g));
+part(1.2,g=>mesh(new THREE.CylinderGeometry(.18,.18,1.5,12),dark,1.05,0,0,g));
+part(3.3,g=>{mesh(new THREE.CylinderGeometry(.04,.04,.8,8),metal,0,0,0,g);mesh(new THREE.SphereGeometry(.14,12,12),M(0xff4d6d,.2,.4,0xff4d6d),0,.45,0,g)});
+const ease=k=>{const c=1.7;return 1+(c+1)*Math.pow(k-1,3)+c*Math.pow(k-1,2)};
+const EUL=(p,y,r)=>new THREE.Euler(p*D2R,r*D2R,y*D2R,'XZY');
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);gm.width=w;gm.height=h;camera.aspect=w/h;camera.position.z=w/h<1?Math.min(17,9.5/(w/h)*.75):9.5;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+
+/* ---------- Трекинг: углы запястья и сгибание пальцев ---------- */
+let AR=4/3,rSign=1,c0=0,rawE=[0,0,0],rawF=[0,0,0,0,0],calOff=[0,0,0],sm=[0,0,0],sf=[0,0,0,0,0],haveRaw=false,lastSeen=0,trackedPrev=null,camStarted=false,wrongHand=false;
+const P=(l,i,a)=>new V3(-l[i].x*a,-l[i].y,-l[i].z*a);
+function angles(lm,world,left){
+ const a=world?1:AR,v=i=>P(lm,i,a),f=v(9).sub(v(0)).normalize();
+ const yaw=Math.atan2(-f.x,Math.hypot(f.y,f.z)),pit=Math.atan2(f.z,f.y),cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pit),sp=Math.sin(pit);
+ const x0=new V3(cy,sy*cp,sy*sp),z0=new V3(0,-sp,cp);let s=v(5).sub(v(17));if(s.dot(x0)<0)s.negate();
+ return [pit*R2D,yaw*R2D,Math.atan2(-s.dot(z0),s.dot(x0))*R2D*(left?1:-1)]}
+function curls(l,w){const f=w?1:AR,v=i=>new V3(l[i].x*f,l[i].y,(l[i].z||0)*f),
+ ag=(a,b,c)=>{const p=v(a).sub(v(b)),q=v(c).sub(v(b));return Math.acos(cl(p.dot(q)/(p.length()*q.length()+1e-6),-1,1))*R2D},pl=v(0).distanceTo(v(9))+1e-6;
+ return [cl((1.15-v(4).distanceTo(v(17))/pl)/.55,0,1),...[[5,6,8],[9,10,12],[13,14,16],[17,18,20]].map(a=>cl((150-ag(...a))/65,0,1))]}
+function rollFix(lm,w,pit,old){const d2=(a,b)=>Math.hypot((lm[a].x-lm[b].x)*AR,lm[a].y-lm[b].y),d3=(a,b)=>Math.hypot(w[a].x-w[b].x,w[a].y-w[b].y,w[a].z-w[b].z),
+ c=d2(5,17)/(d2(0,9)+1e-6)*Math.cos(pit*D2R)/(d3(5,17)/(d3(0,9)+1e-6));c0=Math.max(c0*.998,c);if(Math.abs(old)>2)rSign=Math.sign(old);
+ const m=Math.acos(cl(c/c0,0,1))*R2D;return m<6?0:rSign*Math.min(m,85)}
+function calibrate(){if(haveRaw){calOff=[rawE[0],rawE[1],0];c0=0;setSt('Углы обнулены ✔',true)}}
+$('calib').onclick=calibrate;addEventListener('keydown',e=>{if(e.key&&e.key.length==1&&'cCсС'.includes(e.key))calibrate()});
+const ov=$('ov'),octx=ov.getContext('2d');
+function onResults(r){const iw=r.image.width||640,ih=r.image.height||480;if(ov.width!==iw||ov.height!==ih){ov.width=iw;ov.height=ih}AR=iw/ih;octx.save();octx.clearRect(0,0,iw,ih);octx.drawImage(r.image,0,0,iw,ih);
+ const hs=r.multiHandLandmarks||[];let k=-1,left=false;
+ hs.forEach((h,i)=>{const lb=r.multiHandedness&&r.multiHandedness[i]?r.multiHandedness[i].label:'Left';let l=lb==='Right';if($('swap').checked)l=!l;if(l===(hand==='L')){k=i;left=l}});
+ wrongHand=hs.length>0&&k<0;
+ if(k>=0){const lm=hs[k],wl=r.multiHandWorldLandmarks&&r.multiHandWorldLandmarks[k];
+  drawConnectors(octx,lm,HAND_CONNECTIONS,{color:'#2dff9a',lineWidth:3});drawLandmarks(octx,lm,{color:'#00ff66',fillColor:'#caffe3',lineWidth:1,radius:3});
+  rawE=angles(wl||lm,!!wl,left);if(wl)rawE[2]=rollFix(lm,wl,rawE[0],rawE[2]);rawF=curls(wl||lm,!!wl);haveRaw=true;lastSeen=performance.now()}
+ octx.restore()}
+function onFace(r){const iw=r.image.width||640,ih=r.image.height||480;if(ov.width!==iw||ov.height!==ih){ov.width=iw;ov.height=ih}AR=iw/ih;octx.save();octx.clearRect(0,0,iw,ih);octx.drawImage(r.image,0,0,iw,ih);
+ const l=r.multiFaceLandmarks&&r.multiFaceLandmarks[0];if(l){const d=(a,b)=>Math.hypot((l[a].x-l[b].x)*AR,l[a].y-l[b].y);rawS=d(61,291)/(d(234,454)+1e-6);faceSeen=performance.now();octx.fillStyle='#2dff9a';[61,291,13,14,234,454].forEach(i=>{octx.beginPath();octx.arc(l[i].x*iw,l[i].y*ih,4,0,7);octx.fill()})}octx.restore()}
+function xAx(v,i,t,tol){const k=Object.keys(tgtDeg)[i],m=k==='f'?{off:50,l:50,tm:28}:XM[k];setAx(i,v-m.off,t-m.off,m.l,m.tm*TK,m.off)}
+function xDraw(ok){const t=tgtDeg,W=gm.width,H=gm.height,col=ok?'#2dff9a':'#ffb020';
+ if('el' in t||'sh' in t){drawArm(W*.36,H*.3,H/420,[t.el!==undefined?t.el:sp[0],t.sh!==undefined?t.sh:sp[1]],col,.5);drawArm(W*.36,H*.3,H/420,sp,'#19e6ff',.9)}
+ if(t.f){drawHand(W*.74,H*.52,H/480,t.f,col,.5);drawHand(W*.74,H*.52,H/480,sf,'#19e6ff',.9)}}
+function onPose(r){const iw=r.image.width||640,ih=r.image.height||480;if(ov.width!==iw||ov.height!==ih){ov.width=iw;ov.height=ih}AR=iw/ih;octx.save();if(mode!=='x'){octx.clearRect(0,0,iw,ih);octx.drawImage(r.image,0,0,iw,ih)}
+ const l=r.poseLandmarks;if(l){const ids=((hand==='L')!==$('swap').checked)?[11,13,15]:[12,14,16],q=ids.map(i=>l[i]),vis=q.every(p=>(p.visibility||0)>.4);
+  octx.strokeStyle=vis?'#2dff9a':'#ff4d6d';octx.lineWidth=5;octx.beginPath();q.forEach((p,i)=>i?octx.lineTo(p.x*iw,p.y*ih):octx.moveTo(p.x*iw,p.y*ih));octx.stroke();
+  octx.fillStyle='#caffe3';q.forEach(p=>{octx.beginPath();octx.arc(p.x*iw,p.y*ih,7,0,7);octx.fill()});
+  if(vis){const v=p=>new V3(p.x*AR,p.y,0),S=v(q[0]),El=v(q[1]),Wr=v(q[2]),u=S.clone().sub(El),w=Wr.clone().sub(El),d=El.clone().sub(S);
+   rawP=[180-Math.acos(cl(u.dot(w)/(u.length()*w.length()+1e-6),-1,1))*R2D,Math.acos(cl(d.y/(d.length()+1e-6),-1,1))*R2D];poseSeen=performance.now()}}
+ octx.restore()}
+function ensureCam(){if(camStarted||$('man').checked)return;camStarted=true;
+ try{const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.6});hands.onResults(onResults);let pose=null;try{pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});pose.setOptions({modelComplexity:0,smoothLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});pose.onResults(onPose)}catch(e){pose=null}let face=null;try{face=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});face.setOptions({maxNumFaces:1,refineLandmarks:false,minDetectionConfidence:.5,minTrackingConfidence:.5});face.onResults(onFace)}catch(e){face=null}
+  new Camera($('video'),{onFrame:async()=>{const im={image:$('video')};if(mode==='s'&&face)await face.send(im);else if(mode==='p'&&pose)await pose.send(im);else if(mode==='x'){FR++;if(pose&&!NP&&FR%2)await pose.send(im);else await hands.send(im)}else await hands.send(im)},width:640,height:480}).start().catch(()=>{setSt('Нет доступа к камере → включён ручной режим (Меню → Настройки)');$('man').checked=true;$('manual').style.display='block'})
+ }catch(e){setSt('MediaPipe не загрузился (нужен интернет) → ручной режим');$('man').checked=true;$('manual').style.display='block'}}
+$('man').onchange=()=>$('manual').style.display=$('man').checked?'block':'none';
+
+/* ---------- UI ---------- */
+function setSt(t,ok){const s=$('st');s.textContent=t;s.className=ok?'ok':''}
+function buildHud(){const f=mode==='f',nm=mode==='x'?Object.keys(E()[cur].steps[0][1]).map(k=>k==='f'?'ПАЛЬЦЫ %':XM[k].n):mode==='p'?E()[cur].m.map(i=>['ЛОКОТЬ °','ПЛЕЧО °'][i]):f?['БОЛЬШОЙ','УКАЗАТ.','СРЕДНИЙ','БЕЗЫМ.','МИЗИНЕЦ']:['PITCH','YAW','ROLL'],cs=['#ff4d6d','#2dff9a','#19e6ff','#ffb020','#c58bff'];
+ $('axs').innerHTML=nm.map((x,i)=>`<div class="ax" id="ax${i}" style="width:${f?105:140}px"><div class="t"><span style="color:${cs[i]}">${x}</span><span class="v"></span></div><div class="bar"><i class="tg"></i><i class="cur"></i></div><div class="d"></div></div>`).join('')}
+function setAx(i,v,t,l,tol,off){const e=$('ax'+i),f=a=>(50+cl(a,-l,l)/l*47)+'%';e.querySelector('.cur').style.left=f(v);e.querySelector('.tg').style.left=f(t);
+ e.querySelector('.v').textContent=(v+off).toFixed(0)+'→'+(t+off).toFixed(0);const d=Math.abs(v-t),dd=e.querySelector('.d');dd.textContent='Δ '+d.toFixed(0);dd.style.color=d<tol?'#2dff9a':'#ff8fa3'}
+function drawCards(){$('cards').innerHTML=E().map((e,i)=>`<div class="card ${RS()[i]!=null?'dn':''}" data-i="${i}"><b>${i+1}. ${e.t}</b><small>${e.s}</small><small>${RS()[i]!=null?'✔ '+RS()[i].toFixed(0)+'%':e.final?'🧩 финальная сборка':'▶ начать'}</small></div>`).join('');
+ document.querySelectorAll('.card[data-i]').forEach(c=>c.onclick=()=>begin(+c.dataset.i))}
+const CH=['Показ','Повтор','Разбор','Практика'];
+function chips(){const idx={demo:0,repeat:1,feedback:2,practice:3}[phase];$('steps').innerHTML=!cat||cat==='s'||phase==='home'?'':E()[cur].final?'<span class="chip on">🧩 Финальная сборка '+Math.min(step+1,6)+'/6</span>':CH.map((c,i)=>`<span class="chip ${i===idx?'on':i<idx?'dn':''}">${i+1}. ${c}</span>`).join('')}
+function openMenu(s){$('menu').style.display='flex';$('mclose').style.display=phase==='home'?'none':'block';s=s||(cat&&hand?3:cat?2:1);
+ ['m1','m2','m3'].forEach((x,i)=>$(x).style.display=i+1===s?'block':'none');
+ if(s===3){drawCards();$('m3t').textContent=CN[cat]+(cat==='s'?'':' · '+(hand==='L'?'левая':'правая')+' рука')}}
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{cat=b.dataset.m;hand='';if(cat==='s'){hand='R';openMenu(3)}else openMenu(2)});
+document.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{hand=b.dataset.h;openMenu(3)});
+$('back1').onclick=()=>{cat='';openMenu(1)};$('chg').onclick=()=>{cat='';hand='';openMenu(1)};$('anCard').onclick=openAn;$('anBtn').onclick=openAn;$('chh').onclick=()=>openMenu(2);
+$('menuBtn').onclick=()=>openMenu();$('mclose').onclick=()=>$('menu').style.display='none';$('startBtn').onclick=()=>begin(0);
+
+/* ---------- Сценарий ---------- */
+function setPhase(p){phase=p;chips();const rep=p==='repeat'||p==='final',w=mode==='w';
+ ghost.visible=rep&&w;rig.visible=w;$('hud').style.display=rep?'flex':'none';$('fb').style.display=p==='feedback'?'block':'none';
+ bot.visible=p==='final';$('goBtn').style.display='none';setSt('');$('cam').style.display=(rep||p==='practice')?'block':'none';
+ canvas.style.display=(w&&p!=='practice')?'block':'none'}
+function cap(t,p,btn,fn){$('capT').textContent=t;$('capP').textContent=p;const b=$('goBtn');if(btn){b.style.display='inline-block';b.textContent=btn;b.onclick=fn}else b.style.display='none'}
+function begin(i){if(i>=E().length){setPhase('home');openMenu(3);return}cur=i;mode=E()[i].k||cat;gid=cat+i;NP=!!E()[i].np;$('menu').style.display='none';HOLD=(mode==='f'||mode==='x')?1.5:2;if(cat==='s')startPractice();else if(E()[i].final)startFinal();else startDemo()}
+function startDemo(){step=0;demoT=0;lastDemoIdx=-1;setPhase('demo');const e=E()[cur];cap('👀 Смотрите: '+e.t,'Показ: '+e.steps.map(s=>s[0]).join(' → '),'Готов, повторяю ▶',startRepeat)}
+function startRepeat(){c0=0;step=0;stats=[];TK=tolK();mn=[9e9,9e9,9e9,9e9,9e9];mxx=[-9e9,-9e9,-9e9,-9e9,-9e9];resetStep();buildHud();setPhase('repeat');ensureCam();setTarget();wrist.quaternion.set(0,0,0,1)}
+function startFinal(){c0=0;step=0;stats=[];TK=tolK();mn=[9e9,9e9,9e9,9e9,9e9];mxx=[-9e9,-9e9,-9e9,-9e9,-9e9];parts.forEach(p=>p.visible=false);resetStep();buildHud();setPhase('final');ensureCam();setTarget()}
+function resetStep(){hold=0;lost=0;devSum=0;stepT=0;errE=[0,0,0,0,0];lock=.6}
+const targetQ=new THREE.Quaternion();
+function setTarget(){const a=E()[cur].steps[step];tgtDeg=a[1];if(mode==='w'){targetQ.setFromEuler(EUL(...a[1]));ghost.quaternion.copy(targetQ)}chips();
+ cap(phase==='final'?'🧩 Сборка робота: '+a[0]:'✋ Теперь повторите вы',phase==='final'?`Совместите кисть с силуэтом и держите ${HOLD} с — деталь встанет на место`:`Шаг ${step+1}/${E()[cur].steps.length}: ${a[0]} — повторите позу оранжевого силуэта и держите ${HOLD} с`)}
+function stepDone(){const e=E()[cur],t=e.steps[step][1],f=mode==='f',dev=devSum/HOLD,score=cl(100-(f?1.3:(mode==='p'||mode==='x')?1.6:2.2)*dev-3*Math.max(0,stepT-HOLD-6),0,100);
+ let tip='Движение выполнено точно — так держать!',w=0;
+ if(f){errE.forEach((x,i)=>{if(Math.abs(x)>12&&Math.abs(x)>w){w=Math.abs(x);tip=`Палец «${FN[i]}»: ${x>0?'согнут сильнее, чем нужно':'согнут недостаточно'} (≈${w.toFixed(0)}%).`}})}
+ else if(mode==='x'){Object.keys(t).forEach((k,i)=>{const x=errE[i],fi=k==='f',n=fi?'Пальцы':XM[k].n.replace(/ [°%]/,'');if(Math.abs(x)>(fi?18:12)&&Math.abs(x)>w){w=Math.abs(x);tip=`${n}: ${fi?(x>0?'согнуты сильнее нужного':'согнуты слабее нужного'):(x>0?'угол больше нужного':'угол меньше нужного')} (≈${w.toFixed(0)}${fi?'%':'°'}).`}})}else if(mode==='p'){E()[cur].m.forEach((mi,i)=>{const n=['Локоть','Плечо'][mi],x=errE[i];if(Math.abs(x)>8&&Math.abs(x)>w){w=Math.abs(x);tip=`${n}: угол ${x>0?'больше':'меньше'} нужного на ≈${w.toFixed(0)}°.`}})}else{const N=['Pitch (сгибание)','Yaw (отведение)','Roll (ротация)'];for(let i=0;i<3;i++){const er=t[i]?errE[i]*Math.sign(t[i]):Math.abs(errE[i]);if(Math.abs(er)>4&&Math.abs(er)>w){w=Math.abs(er);tip=`${N[i]}: ${t[i]?(er>0?'перебор':'недобор'):'лишнее отклонение'} ≈${w.toFixed(0)}°. `+(t[i]?(er>0?'Делайте амплитуду меньше.':'Двигайте кисть дальше.'):'Держите эту ось ровно.')}}}
+ if(stepT>12)tip+=' Двигайтесь плавнее, без рывков.';stats.push({score,t:stepT,tip});beep(660);resetStep();lock=.9;
+ if(phase==='final'){const p=parts[step];p.visible=true;p.userData.age=0;p.scale.setScalar(.01)}
+ if(step+1<e.steps.length){step++;setTarget();return}
+ if(phase==='final'){const avg=stats.reduce((a,s)=>a+s.score,0)/stats.length;RS()[cur]=avg;logRes(avg);setTimeout(()=>beep(990,.3),200);showBanner(`Робот собран! Точность: ${avg.toFixed(0)}%`,()=>{setPhase('home');cur=0;openMenu(3)});return}
+ showFeedback()}
+function showFeedback(){setPhase('feedback');const e=E()[cur],avg=stats.reduce((a,s)=>a+s.score,0)/stats.length,pass=avg>=70;RS()[cur]=Math.max(RS()[cur]||0,avg);logRes(avg);
+ cap('🧠 Разбор движения',pass?'Хорошая работа! Ниже — что ещё можно улучшить.':'Нужно немного исправить — смотрите подсказки справа.');
+ $('fb').innerHTML=`<h3>Оценка ИИ: ${avg.toFixed(0)}%</h3>`+stats.map((s,i)=>`<div class="fr ${s.score>=70?'ok':''}"><b>${s.score>=70?'✔':'⚠'} ${e.steps[i][0]}</b> · ${s.score.toFixed(0)}% · ${s.t.toFixed(1)} с<br><small>${s.tip}</small></div>`).join('')+
+ `<p>${pass?'Движение освоено — переходим к практике.':'Исправьте отмеченное и повторите ещё раз.'}</p><button id="b1">↻ Повторить</button><button id="b2">👀 Показать снова</button>`+(pass?'<button id="b3" class="go">Практика ▶</button>':'');
+ $('b1').onclick=startRepeat;$('b2').onclick=startDemo;if(pass)$('b3').onclick=startPractice}
+function showBanner(sub,cb){$('bsub').textContent=sub;$('banner').classList.add('show');setTimeout(()=>{$('banner').classList.remove('show');cb()},2800)}
+let ac;function beep(f,d=.15){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+
+/* ---------- 2D: рисуем руку по сгибанию пальцев ---------- */
+function drawHand(x,y,s,cv,col,a){gx.save();gx.translate(x,y);gx.scale(hand==='L'?-s:s,s);gx.strokeStyle=col;gx.fillStyle=col;gx.lineCap='round';
+ gx.globalAlpha=(a||1)*.25;gx.fillRect(-48,-50,96,100);gx.globalAlpha=a||1;gx.lineWidth=16;
+ [[-36,60],[-12,72],[12,66],[36,52]].forEach(([bx,L],i)=>{const l=L*(1-.72*cv[i+1]);gx.beginPath();gx.moveTo(bx,-50);gx.lineTo(bx,-50-l);gx.stroke()});
+ const t=-2.6+cv[0]*1.9;gx.beginPath();gx.moveTo(-44,20);gx.lineTo(-44+Math.cos(t)*58,20+Math.sin(t)*58);gx.stroke();
+ gx.lineWidth=3;gx.strokeRect(-48,-50,96,100);gx.restore()}
+
+function drawArm(x,y,s,c,col,al){const sg=hand==='L'?-1:1,L1=130*s,L2=120*s,t1=cl(c[1],0,170)*D2R,t2=t1+cl(c[0],0,160)*D2R;
+ gx.save();gx.globalAlpha=al;gx.strokeStyle=col;gx.fillStyle=col;gx.lineCap='round';gx.lineJoin='round';gx.lineWidth=18*s;
+ const sx=x-sg*60*s,ex=sx+sg*Math.sin(t1)*L1,ey=y+Math.cos(t1)*L1,hx=ex+sg*Math.sin(t2)*L2,hy=ey+Math.cos(t2)*L2;
+ gx.beginPath();gx.moveTo(sx,y);gx.lineTo(ex,ey);gx.lineTo(hx,hy);gx.stroke();
+ [[sx,y,14],[ex,ey,12],[hx,hy,17]].forEach(([a,b,r])=>{gx.beginPath();gx.arc(a,b,r*s,0,7);gx.fill()});gx.restore()}
+/* ---------- Практика: игры ---------- */
+const G={};
+function startPractice(){setPhase('practice');ensureCam();const f=mode==='f';
+ Object.assign(G,{s:0,goal:E()[cur].gl||(f?[6,12,5][cur]:[6,6,4,6][cur]),items:[],sp:0,lk:0,done:false,tg:rnd(-60,60),time:0,fx:[],pr:[0,0,0,0,0],want:1,gi:0,shake:0,
+  pt:Array.from({length:70},()=>({x:rnd(0,innerWidth),y:rnd(0,innerHeight),z:rnd(.8,3)})),sx:rnd(.2,.8),sy:rnd(.3,.7),sa:rnd(-55,55),lastLane:-1,its:undefined,tl:45,pts:undefined,pg:0,cd:0,pl:undefined,nx:1,orb:null,si:0,gr:0,ha:undefined,pots:undefined,ps:0,cal:mode==='s'?1.6:0,sbs:0,sn:0,sb:.4,sm:0,sz:.15,pipes:[],rd:0,bg:0,fp:false,ti:undefined,ci:-1,bx:undefined,by:undefined,ph:0,car:0,cp:0,dir:1,hld:0,rx:rnd(.2,.8),ry:rnd(.2,.8),tt:7,tr:[],tm:5,cb:0,list:[...EF[2].steps]});
+ cap('🎮 '+E()[cur].g,E()[cur].gd,'Пропустить ▶',()=>practiceDone(true))}
+function practiceDone(skip){if(G.done)return;G.done=true;if(!skip)logPrac();beep(880,.3);showBanner(`${E()[cur].t} · ${skip?'пропущено':'практика пройдена!'}`,()=>begin(cur+1))}
+function pop(x,y,t){G.fx.push({x,y,t,a:1});G.s+=0}
+function game(dt,a){const W=gm.width,FH=gm.height,off=Math.min(250,FH*.3),H=FH-off;gx.textAlign='center';gx.textBaseline='middle';G.time+=dt;if(G.done)return;
+ const T=(s,x,y,sz,c)=>{gx.font=sz+'px Segoe UI,Apple Color Emoji,sans-serif';gx.fillStyle=c||'#fff';gx.fillText(s,x,y)};
+ const back=(c1,c2,sx,sy)=>{const g=gx.createLinearGradient(0,-off,0,H);g.addColorStop(0,c1);g.addColorStop(1,c2);gx.fillStyle=g;gx.fillRect(0,-off,W,H+off);
+  G.pt.forEach(p=>{p.x=(p.x+sx*p.z*dt+W)%W;p.y=(p.y+sy*p.z*dt+FH)%FH;gx.globalAlpha=.25+.2*p.z;gx.fillStyle='#fff';gx.beginPath();gx.arc(p.x,p.y-off,p.z,0,7);gx.fill()});gx.globalAlpha=1};
+ const score=()=>{G.s++;beep(700,.08)};const ps=i=>hand==='L'?4-i:i;
+ gx.save();if(G.shake>0){G.shake-=dt;gx.translate(rnd(-6,6),rnd(-6,6))}gx.translate(0,off);
+ if(mode==='w'){const [p,y,r]=a;
+  if(gid==='w0'){back('#050a24','#2a0f4a',-260,0);const sy=H/2-cl(p/40,-1,1)*H*.38;G.sp-=dt;if(G.sp<=0){G.sp=1.1;G.items.push({x:W+20,y:rnd(H*.2,H*.85)})}
+   G.items.forEach(s=>{s.x-=W*.3*dt;gx.shadowColor='#ffd84a';gx.shadowBlur=20;T('⭐',s.x,s.y,40);gx.shadowBlur=0;if(Math.abs(s.x-W*.14)<36&&Math.abs(s.y-sy)<40&&!s.h){s.h=1;score();pop(s.x,s.y,'+1')}});
+   G.items=G.items.filter(s=>!s.h&&s.x>-30);gx.fillStyle='rgba(255,160,40,.8)';gx.beginPath();gx.ellipse(W*.14-46,sy,28+Math.sin(G.time*30)*6,9,0,0,7);gx.fill();gx.save();gx.translate(W*.14,sy);gx.rotate(Math.PI/4);T('🚀',0,0,54);gx.restore()}
+  else if(gid==='w1'){back('#4cb8ff','#d4f3ff',-25,0);gx.fillStyle='#3bb54a';gx.fillRect(0,H-70,W,70);gx.fillStyle='#2a9a3a';gx.fillRect(0,H-70,W,8);
+   const dx=W/2-cl(y/28,-1,1)*W*.45;G.sp-=dt;if(G.sp<=0){G.sp=1.1;G.items.push({x:rnd(W*.08,W*.92),y:-20})}
+   G.items.forEach(s=>{s.y+=H*.32*dt;T('🦴',s.x,s.y,36);if(s.y>H-110&&Math.abs(s.x-dx)<60&&!s.h){s.h=1;score();pop(s.x,s.y,'+1')}});G.items=G.items.filter(s=>!s.h&&s.y<H+30);T('🐕',dx,H-72,64)}
+  else if(gid==='w2'){back('#0a0f1c','#1c2744',0,0);const cx=W/2,cy=H/2+10,R=Math.min(W,H)*.3,ang=d=>(d-90)*D2R;
+   gx.lineWidth=26;gx.strokeStyle='#33445f';gx.beginPath();gx.arc(cx,cy,R,0,7);gx.stroke();gx.lineWidth=3;gx.strokeStyle='#8fa8c8';gx.beginPath();gx.arc(cx,cy,R+18,0,7);gx.stroke();
+   for(let k=-8;k<=8;k++){const an=ang(k*10),c=Math.cos(an),s=Math.sin(an);gx.beginPath();gx.moveTo(cx+c*(R-24),cy+s*(R-24));gx.lineTo(cx+c*(R-34),cy+s*(R-34));gx.stroke()}
+   gx.lineWidth=26;gx.strokeStyle='#2dff9a';gx.shadowColor='#2dff9a';gx.shadowBlur=18;gx.beginPath();gx.arc(cx,cy,R,ang(G.tg-12),ang(G.tg+12));gx.stroke();gx.shadowBlur=0;
+   const na=cl(r,-85,85);gx.strokeStyle='#ffb020';gx.lineWidth=7;gx.beginPath();gx.moveTo(cx,cy);gx.lineTo(cx+Math.cos(ang(na))*R*.85,cy+Math.sin(ang(na))*R*.85);gx.stroke();gx.fillStyle='#ffb020';gx.beginPath();gx.arc(cx,cy,12,0,7);gx.fill();
+   if(Math.abs(na-G.tg)<12){G.lk+=dt;if(G.lk>1){score();pop(cx,cy,'🔓');G.lk=0;G.tg=rnd(-65,65)}}else G.lk=Math.max(0,G.lk-dt);
+   gx.fillStyle='#2dff9a';gx.fillRect(cx-100,cy+R+50,200*cl(G.lk,0,1),8);T(G.lk>0?'🔓 держите…':'🔒',cx,cy+R+30,24)}
+    else{back('#02131f','#0a3a52',0,260);const sx=W/2-cl(y/28,-1,1)*W*.42,sy=H/2-cl(p/35,-1,1)*H*.36;G.sp-=dt;if(G.sp<=0){G.sp=.8;G.items.push({x:rnd(W*.1,W*.9),y:-30,k:Math.random()<.35?1:0})}
+   G.items.forEach(s=>{s.y+=H*.3*dt;if(s.k){T('☄️',s.x,s.y,46)}else{gx.strokeStyle='#19e6ff';gx.lineWidth=6;gx.shadowColor='#19e6ff';gx.shadowBlur=16;gx.beginPath();gx.arc(s.x,s.y,28,0,7);gx.stroke();gx.shadowBlur=0}
+    if(!s.h&&Math.hypot(s.x-sx,s.y-sy)<(s.k?38:44)){s.h=1;if(s.k){G.s=Math.max(0,G.s-1);G.shake=.3;beep(180,.2);pop(s.x,s.y,'−1')}else{score();pop(s.x,s.y,'+1')}}});
+   G.items=G.items.filter(s=>!s.h&&s.y<H+40);gx.save();gx.translate(sx,sy);gx.rotate(cl(r,-85,85)*D2R*.5);T('🛸',0,0,64);gx.restore()}}
+ else if(mode==='p'){const px=W*.1+cl(a[0]/130,0,1)*W*.8,py=H-60-cl(a[1]/140,0,1)*(H-120);G.tr.push([px,py]);if(G.tr.length>25)G.tr.shift();G.cd=Math.max(0,(G.cd||0)-dt);
+  if(gid==='e0'){back('#0b0b2e','#1b1050',-15,0);if(G.bx===undefined){G.bx=W*.5;G.by=H*.3}const near=Math.hypot(px-G.bx,py-G.by)<56;G.hld=near?G.hld+dt:Math.max(0,G.hld-dt*2);
+   if(G.hld>1.2){score();pop(G.bx,G.by,'⭐ +1');const mind=Math.min(.55*Math.min(W,H),120+G.s*35);let k=0,nx,ny;do{nx=rnd(W*.12,W*.88);ny=rnd(80,H-70);k++}while(Math.hypot(nx-G.bx,ny-G.by)<mind&&k<30);G.bx=nx;G.by=ny;G.hld=0}
+   gx.shadowColor='#ffd84a';gx.shadowBlur=24;T('⭐',G.bx,G.by,70+Math.sin(G.time*4)*6);gx.shadowBlur=0;gx.strokeStyle='#2dff9a';gx.lineWidth=6;gx.beginPath();gx.arc(G.bx,G.by,56,-Math.PI/2,-Math.PI/2+6.283*cl(G.hld/1.2,0,1));gx.stroke();T('Дотянись до звезды и держи 1 с',W/2,30,18,'#8fc4d6')}
+  else if(gid==='e1'){back('#14000a','#2a0014',0,0);
+   if(!G.pts){G.pts=[0,1,2,3,4,5].map(i=>[W*(.12+.76*i/5),rnd(H*.2,H*.8)]);G.pg=0}
+   const P=G.pts,hw=Math.max(38,70-G.s*5),L=[0];for(let i=1;i<P.length;i++)L.push(L[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));const tot=L[L.length-1];
+   let best=1e9,sq=0;for(let i=1;i<P.length;i++){const ax=P[i-1][0],ay=P[i-1][1],dx=P[i][0]-ax,dy=P[i][1]-ay,t=cl(((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy),0,1),d=Math.hypot(px-(ax+dx*t),py-(ay+dy*t));if(d<best){best=d;sq=(L[i-1]+t*(L[i]-L[i-1]))/tot}}
+   if(best<hw){if(sq<=G.pg+.12)G.pg=Math.max(G.pg,sq)}else if(best>hw+6&&G.cd<=0&&sq>.02){G.cd=.8;G.pg=Math.max(0,G.pg-.12);G.shake=.2;beep(150,.15);pop(px,py,'⚡ касание')}
+   gx.lineJoin='round';gx.lineCap='round';gx.beginPath();P.forEach((q,i)=>i?gx.lineTo(q[0],q[1]):gx.moveTo(q[0],q[1]));gx.strokeStyle='#ff1744';gx.shadowColor='#ff1744';gx.shadowBlur=20;gx.lineWidth=hw*2+10;gx.stroke();gx.shadowBlur=0;gx.strokeStyle='#1a0710';gx.lineWidth=hw*2-4;gx.stroke();
+   T('🟢',P[0][0],P[0][1],34);T('🏁',P[5][0],P[5][1],40);gx.fillStyle='#2dff9a';gx.fillRect(W/2-100,H-30,200*cl(G.pg,0,1),8);
+   if(G.pg>.97){score();pop(W/2,H/2,'✔ +1');G.pts=null;G.pg=0}T('Веди курсор по коридору, не касаясь лазеров',W/2,30,18,'#ffb3c0')}
+  else{back('#0a4a7a','#021a33',0,-30);if(!G.pl){G.pl=[1,2,3].map(n=>({x:rnd(W*.15,W*.85),y:rnd(90,H-80),n}));G.nx=1}
+   G.pl.forEach(p=>{if(p.h)return;const own=p.n===G.nx;gx.fillStyle=own?'#fff':'rgba(255,255,255,.5)';gx.shadowColor='#bfe8ff';gx.shadowBlur=own?24:6;gx.beginPath();gx.arc(p.x,p.y,24,0,7);gx.fill();gx.shadowBlur=0;T(String(p.n),p.x,p.y,24,'#123');
+    if(Math.hypot(px-p.x,py-p.y)<46){if(own){p.h=1;G.nx++;beep(500+G.nx*90,.1);pop(p.x,p.y,'🦪')}else if(G.cd<=0){G.cd=.6;G.shake=.15}}});
+   if(G.nx>3){score();pop(W/2,H-90,'🧰 +1');G.pl=null}T('🧰',W/2,H-30,50);T('Собирай жемчуг по порядку: 1 → 2 → 3',W/2,30,18,'#bfe8ff')}
+  G.tr.forEach((q,i)=>{gx.globalAlpha=i/G.tr.length*.6;gx.fillStyle='#19e6ff';gx.beginPath();gx.arc(q[0],q[1],8*i/G.tr.length+2,0,7);gx.fill()});gx.globalAlpha=1;T('✋',px,py,48)}
+ else if(mode==='x'){const A=a,fa=A.f.reduce((q,x,i)=>q+sat(x,i),0)/5,fist=fa>62,cx=W*.1+cl(A.el/130,0,1)*W*.8,cy=H-60-cl(A.sh/140,0,1)*(H-120);
+  if(gid==='c0'){back('#050a24','#12123a',0,0);const lv=Math.min(5,1+Math.floor(G.s/2));
+   if(!G.orb){let k=0,x,y;do{x=rnd(W*.12,W*.88);y=rnd(80,H-70);k++}while(Math.hypot(x-cx,y-cy)<80+lv*40&&k<30);const an=rnd(0,6.28);G.orb={x,y,vx:Math.cos(an)*25*lv,vy:Math.sin(an)*25*lv}}
+   const o=G.orb;o.x+=o.vx*dt;o.y+=o.vy*dt;if(o.x<W*.08||o.x>W*.92)o.vx*=-1;if(o.y<70||o.y>H-60)o.vy*=-1;const near=Math.hypot(cx-o.x,cy-o.y)<62;
+   if(near&&fist){score();pop(o.x,o.y,'✨ +1');G.orb=null}else{const g=gx.createRadialGradient(o.x,o.y,4,o.x,o.y,44);g.addColorStop(0,'#fff');g.addColorStop(.4,'#19e6ff');g.addColorStop(1,'rgba(25,230,255,0)');gx.fillStyle=g;gx.beginPath();gx.arc(o.x,o.y,44+Math.sin(G.time*6)*4,0,7);gx.fill()}
+   gx.strokeStyle=near?'#2dff9a':'#ffb020';gx.lineWidth=4;gx.beginPath();gx.arc(cx,cy,38,0,7);gx.stroke();T(fist?'✊':'🖐',cx,cy,48);T('Дотянись до сферы и сожми кулак · уровень '+lv,W/2,30,18,'#8fc4d6')}
+  else if(gid==='c1'){back('#0a4a7a','#021a33',0,-30);if(!G.its){G.its=[];G.car=null;G.tl=45}
+   G.tl-=dt;if(G.tl<=0){G.tl=45;pop(W/2,H/2,'⏱ время! ещё раз')}while(G.its.length<3)G.its.push({x:rnd(W*.15,W*.85),y:rnd(H*.5,H-70),t:Math.random()<.6?0:1});
+   const bk=[[W*.12,95,'🧺'],[W*.88,95,'🗑️']];bk.forEach(b=>T(b[2],b[0],b[1],70));
+   if(!G.car&&fist){const it=G.its.find(q=>Math.hypot(cx-q.x,cy-q.y)<56);if(it)G.car=it}
+   if(G.car){if(fist){G.car.x=cx;G.car.y=cy}else{const it=G.car,b=bk[it.t],w=bk[1-it.t];G.car=null;if(Math.hypot(it.x-b[0],it.y-b[1])<90){score();pop(b[0],b[1],'+1');G.its=G.its.filter(q=>q!==it)}else if(Math.hypot(it.x-w[0],it.y-w[1])<90){G.shake=.3;beep(180,.2);pop(it.x,it.y,'не туда!')}}}
+   G.its.forEach(q=>T(q.t?'🥫':'🌟',q.x,q.y+Math.sin(G.time*3+q.x)*4,q===G.car?60:46));
+   gx.strokeStyle=fist?'#2dff9a':'#ffb020';gx.lineWidth=4;gx.beginPath();gx.arc(cx,cy,36,0,7);gx.stroke();T(fist?'✊':'🖐',cx,cy,44);
+   gx.fillStyle='rgba(255,255,255,.15)';gx.fillRect(W/2-120,H-26,240,8);gx.fillStyle=G.tl<10?'#ff4d6d':'#2dff9a';gx.fillRect(W/2-120,H-26,240*cl(G.tl/45,0,1),8);T('🌟 в корзину слева · 🥫 в мусор справа',W/2,30,18,'#bfe8ff')}
+  else if(gid==='c2'){back('#02010a','#0a0a30',0,0);const nx=cl(A.wy/25,-1,1),sx=W/2+nx*W*.4,sy=H*.5-cl(A.wp/30,-1,1)*H*.35,boost=fist,Rr=Math.max(38,70-G.s*3);
+   G.sp-=dt*(boost?1.8:1);if(G.sp<=0){G.sp=1.3;G.items.push({z:1,x:rnd(W*.2,W*.8),y:rnd(H*.25,H*.75),k:Math.random()<.3?1:0})}
+   G.items.forEach(q=>{q.z-=dt*.35*(boost?1.8:1);const k=1-q.z,qx=W/2+(q.x-W/2)*k,qy=H/2+(q.y-H/2)*k,r=(q.k?24:Rr)*(.2+.8*k);
+    if(q.k)T('☄️',qx,qy,r*2);else{gx.strokeStyle='#19e6ff';gx.lineWidth=2+6*k;gx.shadowColor='#19e6ff';gx.shadowBlur=16;gx.beginPath();gx.arc(qx,qy,r,0,7);gx.stroke();gx.shadowBlur=0}
+    if(q.z<=0&&!q.h){q.h=1;const d=Math.hypot(sx-q.x,sy-q.y);if(q.k){if(d<50){G.s=Math.max(0,G.s-1);G.shake=.3;beep(180,.2);pop(sx,sy,'−1')}}else if(d<Rr){score();pop(sx,sy,'+1')}else pop(sx,sy,'мимо')}});
+   G.items=G.items.filter(q=>q.z>0);gx.save();gx.translate(sx,sy);gx.rotate(nx*.5);T('🛸',0,0,60);if(boost)T('🔥',0,50,34);gx.restore();T('Кисть ←→↑↓ — полёт · кулак — ускорение',W/2,30,18,'#8fc4d6')}
+  else if(gid==='c3'){back('#101828','#1a2a44',0,0);if(G.ha===undefined)G.ha=rnd(-60,60);const ang=cl(A.wr,-85,85),cx2=W/2,cy2=H*.5,tolr=Math.max(8,14-G.s),op=!fist&&G.fp,fr=fist&&!G.fp;G.fp=fist;
+   const SH=[[[0,-70],[65,50],[-65,50]],[[-80,-40],[80,-40],[80,40],[-80,40]],[[0,-80],[50,-10],[20,-10],[20,70],[-20,70],[-20,-10],[-50,-10]],[[-50,-70],[-10,-70],[-10,30],[50,30],[50,70],[-50,70]]],pts=SH[G.si%4];
+   const draw=(x,y,an,fill,line,dash)=>{gx.save();gx.translate(x,y);gx.rotate(an*D2R);gx.beginPath();pts.forEach((q,i)=>i?gx.lineTo(q[0],q[1]):gx.moveTo(q[0],q[1]));gx.closePath();if(fill){gx.fillStyle=fill;gx.fill()}gx.strokeStyle=line;gx.lineWidth=5;gx.setLineDash(dash?[10,8]:[]);gx.stroke();gx.setLineDash([]);gx.restore()};
+   if(G.gr===0&&fr)G.gr=1;else if(G.gr===1&&op){const d=Math.abs(ang-G.ha);if(d<tolr){score();pop(cx2,cy2,'✔ +1');G.ha=rnd(-60,60);G.si++}else{G.shake=.25;beep(180,.2);pop(cx2,cy2,'разница '+d.toFixed(0)+'°')}G.gr=0}
+   draw(cx2,cy2,G.ha,'#0a0f1a','#ffb020',true);const fit=G.gr&&Math.abs(ang-G.ha)<tolr;
+   if(G.gr)draw(cx2,cy2,ang,fit?'rgba(45,255,154,.6)':'rgba(25,230,255,.55)',fit?'#2dff9a':'#19e6ff');else draw(W*.18,H*.72,0,'rgba(25,230,255,.55)','#19e6ff');
+   T(G.gr?'Поверните кисть под отверстие и разожмите пальцы':'Сожмите кулак, чтобы взять фигуру',W/2,30,20,'#ffd84a')}
+  else{back('#a8e6ff','#e8fff0',-8,0);const FIN=['🌻','🌷','🌹','🍅','🍓','🥕'];if(!G.pots)G.pots=[0,1,2,3].map(i=>({x:W*(.18+.21*i),g:0,fe:FIN[i]}));
+   const tx=W/2+cl(A.wy/25,-1,1)*W*.4,water=fist;gx.fillStyle='#8b5a2b';gx.fillRect(0,H-90,W,90);
+   if(water){gx.strokeStyle='rgba(60,160,255,.8)';gx.lineWidth=8;gx.beginPath();gx.moveTo(tx,130);gx.lineTo(tx,H-120);gx.stroke()}
+   G.pots.forEach(p=>{if(water&&Math.abs(tx-p.x)<50)p.g+=dt*.22;if(p.g>=1){score();pop(p.x,H-190,p.fe);G.ps++;p.g=0;p.fe=FIN[(G.ps+3)%6]}
+    T(p.g<.5?'🌱':p.g<.95?'🌿':p.fe,p.x,H-120-p.g*50,40+p.g*40);gx.fillStyle='rgba(0,0,0,.25)';gx.fillRect(p.x-35,H-60,70,8);gx.fillStyle='#2dff9a';gx.fillRect(p.x-35,H-60,70*cl(p.g,0,1),8)});
+   T('🚿',tx,90,70);T('Без спешки: кисть ←→ — навести лейку, кулак — полив',W/2,30,18,'#2a5a3a')}}
+ else if(mode==='s'){back('#1b1038','#3b1466',0,20);const rt=a[0];
+  if(G.cal>0){if(a[1]){G.cal-=dt;G.sn++;G.sbs+=rt;if(G.cal<=0)G.sb=G.sbs/G.sn}T(a[1]?'😐 Расслабьте лицо…':'Лицо не найдено — смотрите в камеру',W/2,H*.4,30,'#ffd84a');T(Math.max(0,G.cal).toFixed(1),W/2,H*.55,52)}
+  else{const sl=a[1]?cl((rt/G.sb-1.04)/.2,0,1):0;G.sm+=(sl-G.sm)*Math.min(1,dt*10);const on=G.sm>.55;
+   if(gid==='s0'){if(!G.rd){G.rd=1;G.rs=Math.random()<.55?1:0;G.tm=2.8;G.lk=0}G.tm-=dt;
+    if(G.rs){G.lk=on?G.lk+dt:0;if(G.lk>.5){score();pop(W/2,H*.3,'😄 +1');G.rd=0}else if(G.tm<=0){G.shake=.3;beep(180,.2);pop(W/2,H*.3,'мимо');G.rd=0}}
+    else{if(G.sm>.7){G.s=Math.max(0,G.s-1);G.shake=.3;beep(180,.2);pop(W/2,H*.3,'засмеялись!');G.rd=0}else if(G.tm<=0){score();pop(W/2,H*.3,'😐 +1');G.rd=0}}
+    T(G.rs?'😄 УЛЫБНИСЬ!':'😐 НЕ УЛЫБАЙСЬ!',W/2,H*.22,40,G.rs?'#2dff9a':'#ff8fa3');if(!G.rs)T(['🤡','😜','🤪'][Math.floor(G.time*4)%3],W/2+Math.sin(G.time*6)*90,H*.5,90);else T(on?'😄':'😐',W/2,H*.5,110);
+    gx.fillStyle='rgba(255,255,255,.15)';gx.fillRect(W/2-120,H*.7,240,8);gx.fillStyle='#ffb020';gx.fillRect(W/2-120,H*.7,240*cl(G.tm/2.8,0,1),8)}
+   else if(gid==='s1'){const bx=W*.2,by=H*(.88-.76*G.sm);G.sp-=dt;if(G.sp<=0){G.sp=2;G.pipes.push({x:W+40,g:rnd(H*.28,H*.7)})}
+    G.pipes.forEach(p=>{p.x-=W*.25*dt;const gap=150;gx.fillStyle='#2dff9a';gx.fillRect(p.x-24,-off,48,p.g-gap/2+off);gx.fillRect(p.x-24,p.g+gap/2,48,H);if(!p.h&&Math.abs(p.x-bx)<34){p.h=1;if(Math.abs(by-p.g)<gap/2-14){score();pop(p.x,p.g,'+1')}else{G.s=Math.max(0,G.s-1);G.shake=.3;beep(180,.2);pop(bx,by,'−1')}}});
+    G.pipes=G.pipes.filter(p=>p.x>-60);T('🐤',bx,by,56)}
+   else{const cx=W/2,cy=H*.48;G.sz=cl(G.sz+(on?.3:-.22)*dt,.15,1.05);const R=40+G.sz*Math.min(W,H)*.26;gx.fillStyle=`hsl(${(G.time*40)%360},85%,60%)`;gx.beginPath();gx.ellipse(cx,cy,R*.85,R,0,0,7);gx.fill();T(on?'😄':'😐',cx,cy,R*.7);
+    gx.strokeStyle='#ccc';gx.lineWidth=3;gx.beginPath();gx.moveTo(cx,cy+R);gx.lineTo(cx,H);gx.stroke();if(G.sz>=1){score();pop(cx,cy-R,'💥 +1');G.sz=.15;beep(900,.2)}T('Улыбайтесь — шарик надувается',W/2,H*.92,22,'#ffd84a')}
+   gx.fillStyle='rgba(255,255,255,.15)';gx.fillRect(W/2-100,H-24,200,10);gx.fillStyle=on?'#2dff9a':'#19e6ff';gx.fillRect(W/2-100,H-24,200*G.sm,10)}}
+ else{ /* пальцы: a = проценты сгибания 0..100 */
+  if(gid==='f0'){back('#1b0a3a','#5a2d7a',0,-18);const m=a.reduce((x,y)=>x+y,0)/500,cx=W/2,cy=H*.42,open=1-m;
+   G.lk=(Math.abs(m-G.want)<.25)?G.lk+dt:0;if(G.lk>.5){score();pop(cx,cy,'+1');G.want=1-G.want;G.lk=0}
+   gx.strokeStyle='#2a9a3a';gx.lineWidth=12;gx.beginPath();gx.moveTo(cx,H);gx.quadraticCurveTo(cx+30,H*.7,cx,cy);gx.stroke();
+   const pl=26+open*100,pw=18+open*22;for(let k=0;k<9;k++){gx.save();gx.translate(cx,cy);gx.rotate(k*Math.PI*2/9);gx.fillStyle=`hsl(${320+k*4},85%,${62+open*8}%)`;gx.beginPath();gx.ellipse(0,-pl*.8,pw,pl,0,0,7);gx.fill();gx.restore()}
+   gx.fillStyle='#ffd84a';gx.beginPath();gx.arc(cx,cy,34,0,7);gx.fill();
+   T(G.want?'✊ СОЖМИ В КУЛАК':'🖐 РАСКРОЙ ЛАДОНЬ',cx,H*.82,34,'#ffd84a')}
+  else if(gid==='f1'){back('#0f0a1f','#2a1456',0,40);const lw=Math.min(110,W/7),x0=W/2-2.5*lw,hy=H-170,col=['#ff4d6d','#ffb020','#2dff9a','#19e6ff','#c58bff'],fr=[262,294,330,392,440];
+   for(let i=0;i<5;i++){gx.fillStyle=i%2?'rgba(255,255,255,.04)':'rgba(255,255,255,.08)';gx.fillRect(x0+i*lw,0,lw,H)}
+   gx.fillStyle='rgba(255,255,255,.7)';gx.shadowColor='#fff';gx.shadowBlur=14;gx.fillRect(x0,hy-2,lw*5,4);gx.shadowBlur=0;
+   G.sp-=dt;if(G.sp<=0){G.sp=1.05;let l;do l=Math.floor(Math.random()*5);while(l===G.lastLane);G.lastLane=l;G.items.push({l,y:80})}
+   for(let i=0;i<5;i++){const pr=a[i]>60;if(pr&&!G.pr[i]){const n=G.items.find(s=>s.l===i&&!s.h&&Math.abs(s.y-hy)<75);if(n){n.h=1;score();pop(x0+ps(i)*lw+lw/2,hy,'+1');beep(fr[i],.25)}}G.pr[i]=pr}
+   G.items.forEach(s=>{s.y+=H*.34*dt;gx.fillStyle=col[s.l];gx.shadowColor=col[s.l];gx.shadowBlur=14;gx.fillRect(x0+ps(s.l)*lw+8,s.y-24,lw-16,48);gx.shadowBlur=0});G.items=G.items.filter(s=>!s.h&&s.y<hy+80);
+   for(let i=0;i<5;i++){gx.fillStyle=G.pr[i]?col[i]:'#e8eef8';gx.fillRect(x0+ps(i)*lw+4,H-110,lw-8,80);gx.fillStyle='#123';gx.font='11px Segoe UI';gx.fillText(FN[i].toUpperCase(),x0+ps(i)*lw+lw/2,H-45)}}
+  else if(gid[0]==='g'){back('#10243a','#1f3b57',0,0);const tg=E()[cur].steps[0][1],ok=Math.max(...a.map((v,i)=>Math.abs(sat(v,i)-tg[i]*100)))<32,rel=Math.max(...a.map((v,i)=>sat(v,i)))<35;
+   const ax=W*.2,bx=W*.8,cy=H*.48,fx=G.dir>0?ax:bx,tx=G.dir>0?bx:ax;
+   [ax,bx].forEach(x=>{gx.strokeStyle='rgba(255,255,255,.4)';gx.setLineDash([8,6]);gx.lineWidth=3;gx.strokeRect(x-52,cy-20,104,104);gx.setLineDash([])});
+   if(G.car===0){G.hld=ok?G.hld+dt:0;if(G.hld>.4){G.car=1;G.hld=0;beep(520,.1)}}
+   else if(G.car===1){if(ok){G.cp+=dt*.5;if(G.cp>=1){G.cp=1;G.car=2}}else{G.car=0;G.cp=0;G.shake=.25;beep(180,.15);pop(W/2,cy-80,'уронили!')}}
+   else{G.hld=rel?G.hld+dt:0;if(G.hld>.3){score();pop(tx,cy-40,'✔ +1');G.car=0;G.cp=0;G.hld=0;G.dir*=-1}}
+   const kx=fx+(tx-fx)*G.cp,ky=cy+30-Math.sin(G.cp*Math.PI)*H*.22;T('🧊',kx,ky,64);
+   T(G.car===0?'Возьми кубик: '+E()[cur].t.toLowerCase():G.car===1?'Несёшь… держи захват':'Отпусти — раскрой ладонь',W/2,46,26,'#ffd84a');
+   gx.fillStyle='rgba(255,255,255,.15)';gx.fillRect(W/2-120,70,240,8);gx.fillStyle='#2dff9a';gx.fillRect(W/2-120,70,240*(G.car===1?G.cp:cl(G.hld/.4,0,1)),8);
+   drawHand(W*.3,H*.86,H/950,tg,'#ffb020',.9);drawHand(W*.7,H*.86,H/950,a.map(v=>v/100),ok?'#2dff9a':'#19e6ff',1)}
+  else{back('#1a0b2e','#3b1466',0,30);const tgt=G.list[G.gi][1],ok=Math.max(...a.map((v,i)=>Math.abs(sat(v,i)-tgt[i]*100)))<28,nx=()=>{let n;do n=Math.floor(Math.random()*G.list.length);while(n===G.gi);G.gi=n;G.tm=5;G.lk=0};
+   G.tm-=dt;G.lk=ok?G.lk+dt:0;
+   if(G.lk>.5){score();G.cb++;pop(W/2,H*.3,G.cb>1?'💥 комбо x'+G.cb:'💥');nx()}
+   else if(G.tm<=0){G.cb=0;G.shake=.35;beep(180,.25);pop(W/2,H*.4,'💢');nx()}
+   const k=1-G.tm/5;gx.save();gx.translate(W/2+Math.sin(G.time*3)*20,H*.14+k*H*.28);T('👾',0,0,50+k*70);gx.restore();
+   gx.fillStyle='rgba(255,255,255,.15)';gx.fillRect(W/2-120,H*.03,240,10);gx.fillStyle=G.tm<1.5?'#ff4d6d':'#ffb020';gx.fillRect(W/2-120,H*.03,240*cl(G.tm/5,0,1),10);
+   T('Покажи: '+G.list[G.gi][0],W/2,H*.58,28,'#ffd84a');if(G.cb>1)T('🔥 x'+G.cb,W-80,H*.1,30,'#ffb020');
+   drawHand(W*.28,H*.8,H/520,tgt,'#ffb020',.9);drawHand(W*.72,H*.8,H/520,a.map(v=>v/100),ok?'#2dff9a':'#19e6ff',1);
+   gx.fillStyle='#2dff9a';gx.fillRect(W*.72-60,H*.99,120*cl(G.lk/.5,0,1),8)}}
+ G.fx.forEach(f=>{f.y-=50*dt;f.a-=dt;gx.globalAlpha=Math.max(0,f.a);T(f.t,f.x,f.y,34,'#ffd84a')});gx.globalAlpha=1;G.fx=G.fx.filter(f=>f.a>0);gx.restore();
+ gx.fillStyle='rgba(0,0,0,.45)';gx.fillRect(20,76,150,44);T(`★ ${G.s} / ${G.goal}`,95,98,24,'#ffd84a');
+ gx.fillStyle='rgba(255,255,255,.12)';gx.fillRect(20,FH-18,W-40,8);gx.fillStyle='#2dff9a';gx.fillRect(20,FH-18,(W-40)*cl(G.s/G.goal,0,1),8);
+ if(G.s>=G.goal)practiceDone(false)}
+
+/* ---------- Главный цикл ---------- */
+const tmpE=new THREE.Euler();let last=performance.now(),tAnim=0,mx=0,my=0;addEventListener('mousemove',e=>{mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5});
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.1,(now-last)/1000);last=now;tAnim+=dt;gx.setTransform(1,0,0,1,0,0);gx.clearRect(0,0,gm.width,gm.height);
+ const man=$('man').checked,live=phase==='repeat'||phase==='final'||phase==='practice',f=mode==='f',p=mode==='p',xx=mode==='x',W=gm.width,H=gm.height;let tracking=false,ang=99;
+ if(live){let rw,rf,rp;
+  if(man){rw=[+$('mp').value,+$('my').value,+$('mr').value];rf=[0,1,2,3,4].map(i=>$('mf'+i).value/100);rp=[$('mf0').value*1.5,$('mf1').value*1.6];tracking=true}
+  else{rw=[rawE[0]-calOff[0],rawE[1]-calOff[1],rawE[2]-calOff[2]];rf=rawF;rp=rawP;tracking=xx?((NP||now-poseSeen<600)&&haveRaw&&now-lastSeen<600):p?now-poseSeen<600:mode==='s'?now-faceSeen<600:haveRaw&&now-lastSeen<600;if($('ip').checked)rw[0]*=-1;if($('iy').checked)rw[1]*=-1;if($('ir').checked)rw[2]*=-1}
+  if(tracking){for(let i=0;i<3;i++)sm[i]+=(cl(rw[i],-LIM[i],LIM[i])-sm[i])*(i==2?.4:.6);for(let i=0;i<5;i++)sf[i]+=(rf[i]-sf[i])*.6;for(let i=0;i<2;i++)sp[i]+=(rp[i]-sp[i])*.5}
+  wrist.quaternion.setFromEuler(EUL(sm[0],sm[1],sm[2]));
+  if(!man&&(trackedPrev!==tracking)&&phase!=='feedback'){trackedPrev=tracking;setSt(tracking?'Рука отслежена ✔':(wrongHand&&(mode==='w'||mode==='f'||mode==='x'))?'Это не та рука — покажите '+(hand==='L'?'левую':'правую'):(mode==='s'?'Лицо не найдено — смотрите в камеру':xx?(NP?'Покажите ладонь камере':'Отойдите от камеры: плечо, локоть и кисть в кадре, ладонь к камере'):p?'Плечо, локоть и кисть должны быть в кадре — отойдите от камеры':'Рука не найдена — покажите ладонь камере'),tracking)}}
+ if(phase==='demo'){const e=E()[cur],T=2.6,n=e.steps.length;demoT+=dt;const idx=Math.floor(demoT/T)%n,tt=demoT%T;
+  if(xx){const pv=e.steps[(idx-1+n)%n][1],t=e.steps[idx][1],k=cl(tt/.9,0,1),sk=k*k*(3-2*k),g=(o,key,d)=>o[key]!==undefined?o[key]:d,mix=(key,d)=>g(pv,key,d)+(g(t,key,d)-g(pv,key,d))*sk,fv=(t.f||[0,0,0,0,0]).map((v,i)=>(pv.f?pv.f[i]:0)+(v-(pv.f?pv.f[i]:0))*sk);drawArm(W*.36,H*.3,H/420,[mix('el',10),mix('sh',10)],'#19e6ff',1);if(t.f)drawHand(W*.74,H*.52,H/480,fv,'#19e6ff',1)}else if(f||p){const pv=e.steps[(idx-1+n)%n][1],t=e.steps[idx][1],k=cl(tt/.9,0,1),s=k*k*(3-2*k),c=t.map((v,i)=>pv[i]+(v-pv[i])*s);f?drawHand(W/2,H*.6,H/400,c,'#19e6ff',1):drawArm(W/2,H*.3,H/420,c,'#19e6ff',1)}
+  else{const k=tt<1?ease(Math.min(tt,1)):tt<1.8?1:1-(tt-1.8)/.8,t=e.steps[idx][1];wrist.quaternion.setFromEuler(EUL(t[0]*k,t[1]*k,t[2]*k))}
+  if(idx!==lastDemoIdx){lastDemoIdx=idx;setSt('Сейчас: '+e.steps[idx][0],true)}if(demoT>T*n*2)startRepeat()}
+ if(phase==='repeat'||phase==='final'){const tol=E()[cur].tol*TK;let c,tg;
+  if(f){c=sf.map(v=>v*100);tg=tgtDeg.map(v=>v*100);ang=Math.max(...c.map((v,i)=>Math.abs(sat(v,i)-tg[i])))}else if(xx){const t=tgtDeg,ks=Object.keys(t),errs=[];c=[];tg=[];ks.forEach(k=>{if(k==='f'){const cv=sf.map((v,i)=>sat(v*100,i)),tv=t.f.map(v=>v*100);c.push(cv.reduce((q,x)=>q+x,0)/5);tg.push(tv.reduce((q,x)=>q+x,0)/5);errs.push(Math.max(...cv.map((v,i)=>Math.abs(v-tv[i])))/28)}else{const m=XM[k],v=m.get();c.push(v);tg.push(t[k]);errs.push(Math.abs(v-t[k])/m.tm)}});ang=Math.max(...errs)*E()[cur].tol}
+  else if(p){const mm=E()[cur].m;c=mm.map(i=>sp[i]);tg=mm.map(i=>tgtDeg[i]);ang=Math.max(...c.map((v,i)=>Math.abs(v-tg[i])))}
+  else{tmpE.setFromQuaternion(wrist.quaternion,'XZY');c=[tmpE.x*R2D,tmpE.z*R2D,tmpE.y*R2D];tg=tgtDeg;ang=Math.max(...c.map((v,i)=>Math.abs(v-tg[i])*(cur<3&&tg[i]===0?(i===2?.15:tol/60):(i===2?.7:1))))}
+  const ok=tracking&&ang<(hold>0?tol*1.35:tol)&&lock<=0;if(lock>0)lock-=dt;if(tracking){stepT+=dt;c.forEach((v,i)=>{mn[i]=Math.min(mn[i],v);mxx[i]=Math.max(mxx[i],v)})}
+  if(tracking&&ang<tol*3)for(let i=0;i<c.length;i++)errE[i]+=((c[i]-tg[i])-errE[i])*.05;
+  if(ok){hold+=dt;devSum+=ang*dt;lost=0}else{lost+=dt;if(lost>.5){hold=0;devSum=0}}if(hold>=HOLD)stepDone();
+  const col=ok?0x2dff9a:0xffb020;ghostMat.color.setHex(col);ghostLine.color.setHex(col);ghostMat.opacity=.2+.1*Math.sin(tAnim*4)+(ok?.15:0);
+  if(f){drawHand(W/2,H*.6,H/400,tgtDeg,ok?'#2dff9a':'#ffb020',.5);drawHand(W/2,H*.6,H/400,sf,'#19e6ff',.9)}else if(p){drawArm(W/2,H*.3,H/420,tgtDeg.map((v,i)=>E()[cur].m.includes(i)?v:sp[i]),ok?'#2dff9a':'#ffb020',.5);drawArm(W/2,H*.3,H/420,sp,'#19e6ff',.9)}else if(xx){xDraw(ok)}
+  c.forEach((v,i)=>xx?xAx(v,i,tg[i],tol):p?setAx(i,v-75,tg[i]-75,75,tol,75):f?setAx(i,v-50,tg[i]-50,50,tol,50):setAx(i,v,tg[i],LIM[i],tol,0));
+  $('arc').style.strokeDashoffset=201*(1-Math.min(hold/HOLD,1));$('arc').style.stroke=ok?'#2dff9a':'#19e6ff';$('hold').innerHTML=`${hold.toFixed(1)}/${HOLD}с<br>Δ${ang.toFixed(0)}${f?'%':'°'}`}
+ if(phase==='practice'){if(f)game(dt,sf.map(v=>v*100));else if(mode==='s')game(dt,[man?.4*(1+$('mf0').value/100*.35):rawS,tracking]);else if(xx)game(dt,{el:sp[0],sh:sp[1],wp:sm[0],wy:sm[1],wr:sm[2],f:sf.map(v=>v*100)});else if(p)game(dt,sp.slice());else{tmpE.setFromQuaternion(wrist.quaternion,'XZY');game(dt,[tmpE.x*R2D,tmpE.z*R2D,tmpE.y*R2D])}}
+ let tx=0,ty=-1.4,ts=.75;if(phase==='feedback'){tx=-3.2}else if(phase==='final'){tx=-3.3}
+ rig.position.x+=(tx-rig.position.x)*.08;rig.position.y+=(ty-rig.position.y)*.08;rig.scale.setScalar(rig.scale.x+(ts-rig.scale.x)*.08);
+ parts.forEach(p=>{if(p.visible){p.userData.age=(p.userData.age||0)+dt;const kk=Math.min(p.userData.age/.7,1);p.scale.setScalar(Math.max(.01,ease(kk)));p.position.y=p.userData.y+(1-kk)*3}});
+ if(phase==='final')bot.rotation.y=Math.sin(tAnim*.8)*.35;
+ camera.position.x+=(mx*1.5-camera.position.x)*.05;camera.position.y+=((.8-my)-camera.position.y)*.05;camera.lookAt(0,0,0);pl.position.x=-4+Math.sin(tAnim*.6)*1.5;
+ if(canvas.style.display!=='none')renderer.render(scene,camera)}
+setPhase('home');cap('Добро пожаловать','Выберите режим, руку и упражнение');chips();openMenu(1);requestAnimationFrame(loop);
+})();
+</script></body></html>
